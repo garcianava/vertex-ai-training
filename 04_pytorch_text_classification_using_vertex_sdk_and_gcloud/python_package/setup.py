@@ -12,6 +12,8 @@ REQUIRED_PACKAGES = [
     'datasets',
     'tqdm',
     'cloudml-hypertune'
+    # this dependency is missing in the original code
+    'accelerate'
 ]
 
 setup(
