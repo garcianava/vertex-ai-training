@@ -11,7 +11,7 @@ REQUIRED_PACKAGES = [
     'transformers',
     'datasets',
     'tqdm',
-    'cloudml-hypertune'
+    'cloudml-hypertune',
     # this dependency is missing in the original code
     'accelerate'
 ]
