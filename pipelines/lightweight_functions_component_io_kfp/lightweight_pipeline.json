@@ -1,0 +1,338 @@
+{
+  "pipelineSpec": {
+    "components": {
+      "comp-importer": {
+        "executorLabel": "exec-importer",
+        "inputDefinitions": {
+          "parameters": {
+            "uri": {
+              "type": "STRING"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "artifacts": {
+            "artifact": {
+              "artifactType": {
+                "schemaTitle": "system.Dataset",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      },
+      "comp-preprocess": {
+        "executorLabel": "exec-preprocess",
+        "inputDefinitions": {
+          "parameters": {
+            "message": {
+              "type": "STRING"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "artifacts": {
+            "output_dataset_one": {
+              "artifactType": {
+                "schemaTitle": "system.Dataset",
+                "schemaVersion": "0.0.1"
+              }
+            },
+            "output_dataset_two_path": {
+              "artifactType": {
+                "schemaTitle": "system.Dataset",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          },
+          "parameters": {
+            "output_parameter_path": {
+              "type": "STRING"
+            }
+          }
+        }
+      },
+      "comp-read-artifact-input": {
+        "executorLabel": "exec-read-artifact-input",
+        "inputDefinitions": {
+          "artifacts": {
+            "generic": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      },
+      "comp-train": {
+        "executorLabel": "exec-train",
+        "inputDefinitions": {
+          "artifacts": {
+            "dataset_one_path": {
+              "artifactType": {
+                "schemaTitle": "system.Dataset",
+                "schemaVersion": "0.0.1"
+              }
+            },
+            "dataset_two": {
+              "artifactType": {
+                "schemaTitle": "system.Dataset",
+                "schemaVersion": "0.0.1"
+              }
+            },
+            "imported_dataset": {
+              "artifactType": {
+                "schemaTitle": "system.Dataset",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          },
+          "parameters": {
+            "message": {
+              "type": "STRING"
+            },
+            "num_steps": {
+              "type": "INT"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "artifacts": {
+            "generic_artifact": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            },
+            "model": {
+              "artifactType": {
+                "schemaTitle": "system.Model",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          },
+          "parameters": {
+            "output_message": {
+              "type": "STRING"
+            }
+          }
+        }
+      }
+    },
+    "deploymentSpec": {
+      "executors": {
+        "exec-importer": {
+          "importer": {
+            "artifactUri": {
+              "constantValue": {
+                "stringValue": "gs://ml-pipeline-playground/shakespeare1.txt"
+              }
+            },
+            "typeSchema": {
+              "schemaTitle": "system.Dataset",
+              "schemaVersion": "0.0.1"
+            }
+          }
+        },
+        "exec-preprocess": {
+          "container": {
+            "args": [
+              "--executor_input",
+              "{{$}}",
+              "--function_to_execute",
+              "preprocess"
+            ],
+            "command": [
+              "sh",
+              "-c",
+              "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet     --no-warn-script-location 'kfp==1.8.22' && \"$0\" \"$@\"\n",
+              "sh",
+              "-ec",
+              "program_path=$(mktemp -d)\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\npython3 -m kfp.v2.components.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+              "\nimport kfp\nfrom kfp.v2 import dsl\nfrom kfp.v2.dsl import *\nfrom typing import *\n\ndef preprocess(\n    # An input parameter of type string.\n    message: str,\n    # Use Output to get a metadata-rich handle to the output artifact\n    # of type `Dataset`.\n    output_dataset_one: Output[Dataset],\n    # A locally accessible filepath for another output artifact of type\n    # `Dataset`.\n    output_dataset_two_path: OutputPath(\"Dataset\"),\n    # A locally accessible filepath for an output parameter of type string.\n    output_parameter_path: OutputPath(str),\n):\n    \"\"\"'Mock' preprocessing step.\n    Writes out the passed in message to the output \"Dataset\"s and the output message.\n    \"\"\"\n    output_dataset_one.metadata[\"hello\"] = \"there\"\n    # Use OutputArtifact.path to access a local file path for writing.\n    # One can also use OutputArtifact.uri to access the actual URI file path.\n    with open(output_dataset_one.path, \"w\") as f:\n        f.write(message)\n\n    # OutputPath is used to just pass the local file path of the output artifact\n    # to the function.\n    with open(output_dataset_two_path, \"w\") as f:\n        f.write(message)\n\n    with open(output_parameter_path, \"w\") as f:\n        f.write(message)\n\n"
+            ],
+            "image": "python:3.7"
+          }
+        },
+        "exec-read-artifact-input": {
+          "container": {
+            "args": [
+              "--executor_input",
+              "{{$}}",
+              "--function_to_execute",
+              "read_artifact_input"
+            ],
+            "command": [
+              "sh",
+              "-c",
+              "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet     --no-warn-script-location 'kfp==1.8.22' && \"$0\" \"$@\"\n",
+              "sh",
+              "-ec",
+              "program_path=$(mktemp -d)\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\npython3 -m kfp.v2.components.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+              "\nimport kfp\nfrom kfp.v2 import dsl\nfrom kfp.v2.dsl import *\nfrom typing import *\n\ndef read_artifact_input(\n    generic: Input[Artifact],\n):\n    with open(generic.path, \"r\") as input_file:\n        generic_contents = input_file.read()\n        print(f\"generic contents: {generic_contents}\")\n\n"
+            ],
+            "image": "python:3.7"
+          }
+        },
+        "exec-train": {
+          "container": {
+            "args": [
+              "--executor_input",
+              "{{$}}",
+              "--function_to_execute",
+              "train"
+            ],
+            "command": [
+              "sh",
+              "-c",
+              "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet     --no-warn-script-location 'kfp==1.8.22' && \"$0\" \"$@\"\n",
+              "sh",
+              "-ec",
+              "program_path=$(mktemp -d)\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\npython3 -m kfp.v2.components.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+              "\nimport kfp\nfrom kfp.v2 import dsl\nfrom kfp.v2.dsl import *\nfrom typing import *\n\ndef train(\n    # An input parameter of type string.\n    message: str,\n    # Use InputPath to get a locally accessible path for the input artifact\n    # of type `Dataset`.\n    dataset_one_path: InputPath(\"Dataset\"),\n    # Use InputArtifact to get a metadata-rich handle to the input artifact\n    # of type `Dataset`.\n    dataset_two: Input[Dataset],\n    # Output artifact of type Model.\n    imported_dataset: Input[Dataset],\n    model: Output[Model],\n    # An input parameter of type int with a default value.\n    num_steps: int = 3,\n    # Use NamedTuple to return either artifacts or parameters.\n    # When returning artifacts like this, return the contents of\n    # the artifact. The assumption here is that this return value\n    # fits in memory.\n) -> NamedTuple(\n    \"Outputs\",\n    [\n        (\"output_message\", str),  # Return parameter.\n        (\"generic_artifact\", Artifact),  # Return generic Artifact.\n    ],\n):\n    \"\"\"'Mock' Training step.\n    Combines the contents of dataset_one and dataset_two into the\n    output Model.\n    Constructs a new output_message consisting of message repeated num_steps times.\n    \"\"\"\n\n    # Directly access the passed in GCS URI as a local file (uses GCSFuse).\n    with open(dataset_one_path, \"r\") as input_file:\n        dataset_one_contents = input_file.read()\n\n    # dataset_two is an Artifact handle. Use dataset_two.path to get a\n    # local file path (uses GCSFuse).\n    # Alternately, use dataset_two.uri to access the GCS URI directly.\n    with open(dataset_two.path, \"r\") as input_file:\n        dataset_two_contents = input_file.read()\n\n    with open(model.path, \"w\") as f:\n        f.write(\"My Model\")\n\n    with open(imported_dataset.path, \"r\") as f:\n        data = f.read()\n    print(\"Imported Dataset:\", data)\n\n    # Use model.get() to get a Model artifact, which has a .metadata dictionary\n    # to store arbitrary metadata for the output artifact. This metadata will be\n    # recorded in Managed Metadata and can be queried later. It will also show up\n    # in the UI.\n    model.metadata[\"accuracy\"] = 0.9\n    model.metadata[\"framework\"] = \"Tensorflow\"\n    model.metadata[\"time_to_train_in_seconds\"] = 257\n\n    artifact_contents = \"{}\\n{}\".format(dataset_one_contents, dataset_two_contents)\n    output_message = \" \".join([message for _ in range(num_steps)])\n    return (output_message, artifact_contents)\n\n"
+            ],
+            "image": "python:3.9"
+          }
+        }
+      }
+    },
+    "pipelineInfo": {
+      "name": "metadata-pipeline-v2"
+    },
+    "root": {
+      "dag": {
+        "tasks": {
+          "importer": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-importer"
+            },
+            "inputs": {
+              "parameters": {
+                "uri": {
+                  "runtimeValue": {
+                    "constantValue": {
+                      "stringValue": "gs://ml-pipeline-playground/shakespeare1.txt"
+                    }
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "importer"
+            }
+          },
+          "preprocess": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-preprocess"
+            },
+            "inputs": {
+              "parameters": {
+                "message": {
+                  "componentInputParameter": "message"
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "preprocess"
+            }
+          },
+          "read-artifact-input": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-read-artifact-input"
+            },
+            "dependentTasks": [
+              "train"
+            ],
+            "inputs": {
+              "artifacts": {
+                "generic": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "generic_artifact",
+                    "producerTask": "train"
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "read-artifact-input"
+            }
+          },
+          "train": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-train"
+            },
+            "dependentTasks": [
+              "importer",
+              "preprocess"
+            ],
+            "inputs": {
+              "artifacts": {
+                "dataset_one_path": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "output_dataset_one",
+                    "producerTask": "preprocess"
+                  }
+                },
+                "dataset_two": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "output_dataset_two_path",
+                    "producerTask": "preprocess"
+                  }
+                },
+                "imported_dataset": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "artifact",
+                    "producerTask": "importer"
+                  }
+                }
+              },
+              "parameters": {
+                "message": {
+                  "taskOutputParameter": {
+                    "outputParameterKey": "output_parameter_path",
+                    "producerTask": "preprocess"
+                  }
+                },
+                "num_steps": {
+                  "runtimeValue": {
+                    "constantValue": {
+                      "intValue": "5"
+                    }
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "train"
+            }
+          }
+        }
+      },
+      "inputDefinitions": {
+        "parameters": {
+          "message": {
+            "type": "STRING"
+          }
+        }
+      }
+    },
+    "schemaVersion": "2.0.0",
+    "sdkVersion": "kfp-1.8.22"
+  },
+  "runtimeConfig": {
+    "gcsOutputDirectory": "gs://garcianava-vertex-ai-training/pipeline_root/shakespeare"
+  }
+}
